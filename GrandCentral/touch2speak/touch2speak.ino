@@ -1,4 +1,6 @@
-#define DEBUG 1
+// EGR 122 Touch Screen Assistive Device Prototype Proof-of-Concept
+
+#define DEBUG 1 // uncomment for extra debug info
 #include <FreeStack.h>
 #include <MinimumSerial.h>
 #include <SdFat.h>
@@ -21,11 +23,12 @@
 #define TS_MAXY 920   // 940
 
 // aligns cursor with touch point
+// tweak as necessary
 #define X_FUDGE 115
 #define Y_FUDGE 120
 
 // define touch pressure range
-#define MINPRESSURE 800
+#define MINPRESSURE 800     // SAMD51 much more sensitive A/D converter, need to boost upper limit
 #define MAXPRESSURE 1000
 
 // For better pressure precision, we need to know the resistance
@@ -37,8 +40,8 @@ SdFat                SD;         // SD card filesystem
 Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
 
 // Serial TFT Access Lines
-#define TFT_CS 10
-#define TFT_DC 9
+#define TFT_CS 10     // touch screen chip select
+#define TFT_DC 9      // touch screen data / command
 #define TFT_RST -1 // RST can be set to -1 if you tie it to Arduino's reset
 
 // Assign human-readable names to some common 16-bit color values:
@@ -51,9 +54,10 @@ Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
 #define YELLOW  0xFFE0
 #define WHITE   0xFFFF
 
+// function to read all the files from the specified directory
 void readFiles(File dir, char files[][13], int16_t size);
 
-// Use hardware SPI (on Uno, #13, #12, #11) and the above for CS/DC
+// Use hardware SPI above for CS/DC
 Adafruit_HX8357 tft = Adafruit_HX8357(TFT_CS, TFT_DC, TFT_RST);
 
 #define MAX_ICONS 24
@@ -61,18 +65,19 @@ char files[MAX_ICONS][13];
 
 void setup() {
   Serial.begin(9600);
-  Serial.println("Touchscreen Assistive Device Prototype");
+  Serial.println("Touchscreen Assistive Device Prototype Starting Up");
 
+  // initialize SPI interface
   if(!SD.begin(PIN_SPI1_SS, SD_SCK_MHZ(25))) { // ESP32 requires 25 MHz limit
     Serial.println(F("SD begin() failed"));
   }
 
+  // crank up display and init to black
   tft.begin();
   tft.fillScreen(BLACK);
   
-  /* Draw Grid */
-  readFiles(SD.open("/ICONS/"), files);
-
+  // Draw Grid
+  readFiles(SD.open("/ICONS/"), files);  // returns with file names in files  
   int16_t ndx = 0;
   for (int16_t i = 0; i < tft.width(); i += 80) {
     for (int16_t j = 0; j < tft.height(); j += 80) {
@@ -85,17 +90,18 @@ void setup() {
   Serial.println("Symbols Loaded - Unit Ready");  
 }
 
-void loop() {  
-
-  //Serial.println("Touchscreen Assistive Device Prototype");
+void loop() {
+  // open question on github about whether or not the TouchScreen library needs to be tweaked  
   TSPoint p = ts.getPoint();
+
+  // recommmend an averaging sample here
+  // get x and y coordinates
   p.x = TS_MAXX - p.x + X_FUDGE;
   p.y = TS_MAXY - p.y + Y_FUDGE;
 
-
+  // if pressure (touch) detected
   if (p.z > MINPRESSURE && p.z < MAXPRESSURE) {
 
-    Serial.println("Touch Detected");
     // scale from 0->1023 to tft.width
     p.x = map(p.x, TS_MINX, TS_MAXX, tft.width(), 0);
     p.y = map(p.y, TS_MINY, TS_MAXY, tft.height(), 0);
@@ -103,12 +109,11 @@ void loop() {
     int16_t zone = getGrid(p.x,  p.y);
     char filename[25] = "/SOUNDS/\0";
     strncat(filename, files[zone], 13);
-    char* ndx = strchr(filename,'.');
+    char* ndx = strchr(filename,'.'); // build sound file name
     strncpy(ndx, ".WAV", 4); 
 
     // Play WAV File Here
-    
-
+    // put magic code here!
     //
 
     if (DEBUG) {
@@ -123,11 +128,13 @@ void loop() {
       Serial.print("Sound File: ");
       Serial.println(filename);
     }
-    delay(100);
+    delay(100); // slow down the sampling, remove when averaging implemented
   }
 }
 
 // Get grid location of touch
+// divides up screen into a grid and returns a unique index based on location
+// of touch
 uint8_t getGrid(int16_t x, int16_t y) {
   int16_t row = 0;
   int16_t column = 0;
@@ -151,21 +158,21 @@ uint8_t getGrid(int16_t x, int16_t y) {
     column = 4;
   else if (y > 400 && y < 480)
     column = 5;
-
   return row * 6 + column;
 }
 
+// Read all the files in specified directory and return names in files parameter
 void readFiles(File dir, char files[][13]) {
     int16_t ndx = 0;
     while(true) {     
-    File entry =  dir.openNextFile();
-
+    File entry =  dir.openNextFile();\
     if (! entry) {
        // no more files
        break;
     }
     char tmp[13];
-    entry.getName(tmp,13);
+    entry.getName(tmp,13);  // returns name of file
+    // filter out folders, renames, hidden files, etc.,
     if (ndx < MAX_ICONS && tmp[0] != '_' && tmp[0] != '.' && strlen(tmp) > 1) {
       strncpy(files[ndx], tmp, 13);
       ndx++;
