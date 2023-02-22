@@ -1,11 +1,21 @@
-// EGR 122 Touch Screen Assistive Device Prototype Proof-of-Concept
 
+
+// EGR 122 Touch Screen Assistive Device Prototype Proof-of-Concept
+#include <Arduino.h>
 #define DEBUG 1 // uncomment for extra debug info
 #include <FreeStack.h>
 #include <MinimumSerial.h>
 #include <SdFat.h>
 #include <SdFatConfig.h>
 #include <sdios.h>
+
+#include "SDWaveFile.hh"
+#include <Adafruit_ZeroI2S.h>
+
+// WAV File Player
+//#define I2S_DEVICE 1
+/* max volume for 32 bit data */
+#define VOLUME ( (1UL << 31) - 1)
 
 // touchscreen includes
 #include <Adafruit_GFX.h>
@@ -38,6 +48,9 @@
 TouchScreen ts = TouchScreen(XP, YP, XM, YM, 300);
 SdFat                SD;         // SD card filesystem
 Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
+SDWaveFile waveFile; // only one file active at a time
+Adafruit_ZeroI2S player = Adafruit_ZeroI2S();
+int playout_buffer[128];
 
 // Serial TFT Access Lines
 #define TFT_CS 10     // touch screen chip select
@@ -113,10 +126,34 @@ void loop() {
     strncpy(ndx, ".WAV", 4); 
 
     // Play WAV File Here
-    // put magic code here!
-    //
+    waveFile = SDWaveFile(filename);
+
+    // check if the WaveFile is valid
+    if (!waveFile) {
+      Serial.print("There is no .wav file called ");
+      Serial.println(filename);
+      while (true); // do nothing
+    }
+    // print the file's duration:
+    long duration = waveFile.duration();
+    Serial.print("Duration = ");
+    Serial.print(duration);
+    Serial.println(" seconds");
+
+    player.begin(I2S_32_BIT, 44100);
+    player.enableTx();
+    int sz = sizeof(playout_buffer);
+    int n = sz;
+    while (n > 0) {    
+      n = waveFile.read(playout_buffer, sz);
+      for (int i = 0; i < 128; i += 1) {
+        player.write(playout_buffer[i],playout_buffer[i]);
+      }
+    }      
 
     if (DEBUG) {
+      Serial.print("Filename: ");
+      Serial.println(filename);
       Serial.print("Coord: ");
       Serial.print(p.x);
       Serial.print(",");
