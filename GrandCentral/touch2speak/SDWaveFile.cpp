@@ -41,16 +41,16 @@ struct WaveFileHeader {
 } __attribute__((packed));
 
 SDWaveFile::SDWaveFile() : 
-  SDWaveFile(NULL)
+  SDWaveFile(NULL, NULL)
 {
 }
 
-SDWaveFile::SDWaveFile(const char* filename) :
+SDWaveFile::SDWaveFile(SdFat* SD, const char* filename) :
   _headerRead(false),
   _isValid(false),
   _isPlaying(false),
   _filename(filename),
-
+  SD(SD),
   _sampleRate(-1),
   _bitsPerSample(-1),
   _channels(-1),
@@ -60,11 +60,11 @@ SDWaveFile::SDWaveFile(const char* filename) :
 
 }
 
-SDWaveFile::SDWaveFile(const String& filename) :
-  SDWaveFile(filename.c_str())
-{
-
-}
+//SDWaveFile::SDWaveFile(const String& filename) :
+//  SDWaveFile(filename.c_str())
+//{
+//
+//}
 
 SDWaveFile::~SDWaveFile() {
 }
@@ -168,7 +168,7 @@ int SDWaveFile::begin()
     return 0;
   }
 
-  _file = SD.open(_filename);
+  _file = SD->open(_filename);
 
   _isPlaying = true;
 
@@ -185,9 +185,9 @@ int SDWaveFile::read(void* buffer, size_t size)
     memset(buffer, 0x00, _dataOffset);
   }
 
- // if (read) {
- //   samplesRead(buffer, read);
- // }
+  //if (read) {
+  //  samplesRead(buffer, read);
+  //}
 
   return read;
 }
@@ -214,7 +214,7 @@ void SDWaveFile::readHeader()
     return;
   }
 
-  _file = SD.open(_filename);
+  _file = SD->open(_filename);
 
   if (!_file) {
     return;

@@ -31,8 +31,8 @@ class SDWaveFile
 {
 public:
   SDWaveFile();
-  SDWaveFile(const char *filename);
-  SDWaveFile(const String& filename);
+  SDWaveFile(SdFat* SD, const char *filename);
+  //SDWaveFile(const String& filename);
 
   virtual ~SDWaveFile();
 
@@ -62,7 +62,7 @@ private:
   bool _isPlaying;
   File _file;
   String _filename;
-  SdFat SD;
+  SdFat* SD;
   long _sampleRate;
   int _bitsPerSample;
   int _channels;

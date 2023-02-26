@@ -15,7 +15,11 @@
 // WAV File Player
 //#define I2S_DEVICE 1
 /* max volume for 32 bit data */
-#define VOLUME ( (1UL << 31) - 1)
+/* max volume for 32 bit data */
+
+
+#define VOLUME 0.2
+
 
 // touchscreen includes
 #include <Adafruit_GFX.h>
@@ -50,7 +54,7 @@ SdFat                SD;         // SD card filesystem
 Adafruit_ImageReader reader(SD); // Image-reader object, pass in SD filesys
 SDWaveFile waveFile; // only one file active at a time
 Adafruit_ZeroI2S player = Adafruit_ZeroI2S();
-int playout_buffer[128];
+int32_t playout_buffer[256];
 
 // Serial TFT Access Lines
 #define TFT_CS 10     // touch screen chip select
@@ -126,13 +130,12 @@ void loop() {
     strncpy(ndx, ".WAV", 4); 
 
     // Play WAV File Here
-    waveFile = SDWaveFile(filename);
+    waveFile = SDWaveFile(&SD, filename);
 
     // check if the WaveFile is valid
     if (!waveFile) {
       Serial.print("There is no .wav file called ");
       Serial.println(filename);
-      while (true); // do nothing
     }
     // print the file's duration:
     long duration = waveFile.duration();
@@ -140,16 +143,36 @@ void loop() {
     Serial.print(duration);
     Serial.println(" seconds");
 
-    player.begin(I2S_32_BIT, 44100);
+    Serial.print("Sample Rate: ");
+    Serial.println(waveFile.sampleRate());
+
+    Serial.print("Bits Per Sample: ");
+    Serial.println(waveFile.bitsPerSample());
+
+    Serial.print("Channels: ");
+    Serial.println(waveFile.channels());
+
+    player.begin(I2S_32_BIT, 44100);    
     player.enableTx();
     int sz = sizeof(playout_buffer);
+    Serial.print("Size: ");
+    Serial.println(sz);
     int n = sz;
+    Serial.println(VOLUME);
+    waveFile.begin();
     while (n > 0) {    
-      n = waveFile.read(playout_buffer, sz);
-      for (int i = 0; i < 128; i += 1) {
-        player.write(playout_buffer[i],playout_buffer[i]);
+      n = waveFile.read(&playout_buffer, sizeof(playout_buffer));
+      //Serial.print("Read: ");
+      //Serial.println(n);
+      int max = n / 4;
+      for (int i = 0; i < max; i += 1) {
+        int32_t left = (int32_t)(playout_buffer[i] * VOLUME);
+        int32_t right = (int32_t)(playout_buffer[i] * VOLUME);
+        player.write(left, right);
       }
-    }      
+    }  
+    waveFile.end();   
+    player.disableTx(); 
 
     if (DEBUG) {
       Serial.print("Filename: ");
