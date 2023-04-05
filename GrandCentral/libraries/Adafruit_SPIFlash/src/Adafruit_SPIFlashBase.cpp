@@ -155,9 +155,11 @@ bool Adafruit_SPIFlashBase::begin(SPIFlash_Device_t const *flash_devs,
   }
 
   if (_flash_dev == NULL) {
+#if SPIFLASH_DEBUG
     Serial.print("Unknown flash device 0x");
     Serial.println(
         ((uint32_t)jedec_ids[0]) << 16 | jedec_ids[1] << 8 | jedec_ids[2], HEX);
+#endif
     return false;
   }
 
@@ -358,8 +360,9 @@ bool Adafruit_SPIFlashBase::eraseSector(uint32_t sectorNumber) {
 }
 
 bool Adafruit_SPIFlashBase::eraseBlock(uint32_t blockNumber) {
-  if (!_flash_dev)
+  if (!_flash_dev) {
     return false;
+  }
 
   // skip erase for fram
   if (_flash_dev->is_fram) {
@@ -405,8 +408,9 @@ bool Adafruit_SPIFlashBase::eraseChip(void) {
 
 uint32_t Adafruit_SPIFlashBase::readBuffer(uint32_t address, uint8_t *buffer,
                                            uint32_t len) {
-  if (!_flash_dev)
+  if (!_flash_dev) {
     return 0;
+  }
 
   _indicator_on();
 
@@ -437,8 +441,9 @@ uint32_t Adafruit_SPIFlashBase::read32(uint32_t addr) {
 uint32_t Adafruit_SPIFlashBase::writeBuffer(uint32_t address,
                                             uint8_t const *buffer,
                                             uint32_t len) {
-  if (!_flash_dev)
+  if (!_flash_dev) {
     return 0;
+  }
 
   SPIFLASH_LOG(address, len);
 
@@ -465,8 +470,9 @@ uint32_t Adafruit_SPIFlashBase::writeBuffer(uint32_t address,
           SFLASH_PAGE_SIZE - (address & (SFLASH_PAGE_SIZE - 1));
       uint32_t const toWrite = min(remain, leftOnPage);
 
-      if (!_trans->writeMemory(address, buffer, toWrite))
+      if (!_trans->writeMemory(address, buffer, toWrite)) {
         break;
+      }
 
       remain -= toWrite;
       buffer += toWrite;
